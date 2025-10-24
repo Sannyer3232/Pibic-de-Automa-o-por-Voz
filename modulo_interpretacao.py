@@ -2,28 +2,36 @@
 # Responsável pelo PLN: pré-processamento e identificação da intenção.
 
 import nltk
+import joblib # Importa o joblib para salvar/carregar o modelo
+import os
+import numpy as np
 from nltk.tokenize import word_tokenize
 from nltk.corpus import stopwords
 from nltk.stem import RSLPStemmer
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.metrics.pairwise import cosine_similarity
-import numpy as np
-import os
-
-# Importa a base de conhecimento
 from config import intents
+
+# Define o caminho para o modelo salvo
+MODELO_PATH = "tfidf_vectorizer.joblib"
 
 # Garante que os pacotes NLTK necessários estão baixados
 def baixar_dependencias_nltk():
+    """
+    Verifica se os pacotes NLTK estão instalados e baixa APENAS se necessário.
+    """
+    print("Verificando dependências NLTK...")
     try:
         nltk.data.find('tokenizers/punkt')
         nltk.data.find('corpora/stopwords')
         nltk.data.find('stammers/rslp')
+        print("Dependências NLTK já estão satisfeitas.")
     except LookupError:
-        print("Baixando dependências NLTK (punkt, stopwords, rslp)...")
+        print("Baixando dependências NLTK (punkt, stopwords, rslp)... Isso só acontece uma vez.")
         nltk.download("punkt", quiet=True)
         nltk.download("stopwords", quiet=True)
         nltk.download("rslp", quiet=True)
+        print("Dependências NLTK baixadas com sucesso.")
 
 # --- Funções de Pré-processamento ---
 
@@ -39,18 +47,33 @@ def preprocessar(frase):
 
 # --- Funções do Modelo TF-IDF ---
 
-def inicializar_vectorizer():
+def obter_ou_criar_vectorizer():
     """
-    Cria e "treina" o modelo TF-IDF com base nas intenções do config.py.
-    Retorna o vectorizer treinado.
+    Carrega o modelo TF-IDF de um arquivo, se existir.
+    Se não, cria, treina e salva um novo modelo.
     """
-    print("Inicializando e treinando o modelo TF-IDF...")
-    baixar_dependencias_nltk()
-    vectorizer = TfidfVectorizer()
-    # Cria o dataset de treinamento a partir das chaves do dicionário 'intents'
-    dataset = [preprocessar(frase) for frases in intents.values() for frase in frases]
-    vectorizer.fit(dataset)
-    print("Modelo TF-IDF pronto.")
+    baixar_dependencias_nltk() # Primeiro, verifica os pacotes NLTK
+    
+    try:
+        # Tenta carregar o modelo que já foi treinado
+        vectorizer = joblib.load(MODELO_PATH)
+        print(f"Modelo TF-IDF carregado com sucesso de '{MODELO_PATH}'.")
+    except FileNotFoundError:
+        # Se o arquivo não existe, cria um novo
+        print(f"Arquivo '{MODELO_PATH}' não encontrado. Criando e treinando um novo modelo...")
+        
+        vectorizer = TfidfVectorizer()
+        # Cria o dataset de treinamento a partir das chaves do dicionário 'intents'
+        dataset = [preprocessar(frase) for frases in intents.values() for frase in frases]
+        
+        # Treina (fit) o modelo
+        vectorizer.fit(dataset)
+        print("Novo modelo TF-IDF treinado.")
+        
+        # Salva o modelo treinado no arquivo
+        joblib.dump(vectorizer, MODELO_PATH)
+        print(f"Modelo salvo em '{MODELO_PATH}' para uso futuro.")
+    
     return vectorizer
 
 def identificar_intencao(comando, vectorizer, limiar=0.5):

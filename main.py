@@ -4,7 +4,7 @@
 import speech_recognition as sr
 from config import CRITICAL_COMMANDS
 from modulo_captura import ouvir_comando, ouvir_confirmacao
-from modulo_interpretacao import inicializar_vectorizer, identificar_intencao
+from modulo_interpretacao import obter_ou_criar_vectorizer, identificar_intencao
 from modulo_execucao import executar_comando
 from modulo_feedback import falar
 
@@ -13,7 +13,7 @@ def main():
     Função principal que inicializa os módulos e executa o loop de escuta.
     """
     # 1. Inicializa o Módulo de Interpretação (carrega o modelo TF-IDF)
-    vectorizer = inicializar_vectorizer()
+    vectorizer = obter_ou_criar_vectorizer()
     
     # 2. Inicializa o Módulo de Captura
     recognizer = sr.Recognizer()

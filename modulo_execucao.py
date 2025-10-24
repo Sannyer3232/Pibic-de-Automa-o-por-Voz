@@ -3,6 +3,9 @@
 
 import webbrowser
 import pyautogui
+import pyperclip
+import time
+import estado_global as estado
 import os
 from config import comandos_programas, intents
 from modulo_feedback import falar
@@ -117,6 +120,8 @@ def executar_comando(intencao, comando_original):
             pyautogui.press("enter")
 
         # --- AÇÕES DE NAVEGAÇÃO DE PASTAS ---
+        
+        # Comandos PARA ABRIR o Explorer em locais
         elif intencao == "ABRIR_EXPLORADOR":
             falar("Abrindo o explorador de arquivos.")
             abrir_no_explorer("") # Abre o "Acesso Rápido"
@@ -144,60 +149,12 @@ def executar_comando(intencao, comando_original):
         elif intencao == "ABRIR_VIDEOS":
             falar("Abrindo a pasta de vídeos.")
             abrir_no_explorer("shell:videos")
-        elif intencao == "NAVEGAR_ABRIR_NOMEADO":
-            # Lógica para extrair o nome da pasta do comando original
-            nome_pasta = None
-            comando_lower = comando_original.lower()
-            
-            # Lista de gatilhos que definimos em config.py
-            triggers = intents["NAVEGAR_ABRIR_NOMEADO"]
-            
-            for trigger in triggers:
-                trigger_lower = trigger.lower()
-                if comando_lower.startswith(trigger_lower + " "): # Procura por "abrir "
-                    nome_pasta = comando_original[len(trigger):].strip()
-                    if nome_pasta:
-                        break
-            
-            if nome_pasta:
-                falar(f"Abrindo {nome_pasta}")
-                pyautogui.write(nome_pasta) # Digita o nome para selecionar
-                pyautogui.press("enter")      # Pressiona Enter para abrir
-            else:
-                falar("Não entendi o nome da pasta. Tente dizer 'Abrir pasta TCC'.")
-
-        elif intencao == "NAVEGAR_ABRIR_ITEM":
-            falar("Abrindo item selecionado.")
-            pyautogui.press("enter")
-            
-        elif intencao == "NAVEGAR_SELECIONAR_NOMEADO":
-            # Lógica para extrair o nome do arquivo/pasta
-            nome_item = None
-            comando_lower = comando_original.lower()
-            
-            # Lista de gatilhos que definimos em config.py
-            triggers = intents["NAVEGAR_SELECIONAR_NOMEADO"]
-            
-            for trigger in triggers:
-                trigger_lower = trigger.lower()
-                if comando_lower.startswith(trigger_lower + " "): # Procura por "selecionar "
-                    nome_item = comando_original[len(trigger):].strip()
-                    if nome_item:
-                        break
-            
-            if nome_item:
-                falar(f"Selecionando {nome_item}")
-                pyautogui.write(nome_item) # Digita o nome para selecionar
-                # Propositalmente NÃO pressionamos Enter
-            else:
-                falar("Não entendi o que devo selecionar. Tente dizer 'Selecionar [nome do arquivo]'.")
             
         elif intencao == "ABRIR_DISCO":
-            # Lógica para extrair a letra do disco
             comando_lower = comando_original.lower()
             partes = comando_lower.split("disco ")
             if len(partes) > 1:
-                letra = partes[1].strip()[0] # Pega o primeiro caractere depois de "disco "
+                letra = partes[1].strip()[0] 
                 if 'a' <= letra <= 'z':
                     caminho_disco = f"{letra}:"
                     falar(f"Abrindo o disco {letra}.")
@@ -207,18 +164,144 @@ def executar_comando(intencao, comando_original):
             else:
                 falar("Não entendi a letra do disco. Tente dizer 'Abrir disco C'.")
         
-        # Comandos DEPOIS que o Explorer está aberto
+        # --- AÇÕES DENTRO do Explorer ---
+        elif intencao == "CRIAR_PASTA":
+            caminho_atual = get_explorer_path()
+            if caminho_atual:
+                nome_pasta = None
+                comando_lower = comando_original.lower()
+                triggers = intents["CRIAR_PASTA"]
+                
+                for trigger in triggers:
+                    trigger_lower = trigger.lower()
+                    if comando_lower.startswith(trigger_lower + " "):
+                        nome_pasta = comando_original[len(trigger):].strip()
+                        if nome_pasta:
+                            break
+                
+                if not nome_pasta: # Se o comando foi só "Criar pasta"
+                    nome_pasta = "Nova pasta"
+                    
+                try:
+                    os.mkdir(os.path.join(caminho_atual, nome_pasta))
+                    falar(f"Pasta '{nome_pasta}' criada.")
+                except Exception as e:
+                    falar(f"Não foi possível criar a pasta. Erro: {e}")
+            else:
+                falar("Não consegui identificar a pasta atual para criar o diretório.")
+
+        elif intencao == "RENOMEAR_SELECIONADO":
+            nome_novo = None
+            comando_lower = comando_original.lower()
+            triggers = intents["RENOMEAR_SELECIONADO"]
+            
+            for trigger in triggers:
+                trigger_lower = trigger.lower()
+                if comando_lower.startswith(trigger_lower + " "):
+                    nome_novo = comando_original[len(trigger):].strip()
+                    if nome_novo:
+                        break
+            
+            if nome_novo:
+                falar(f"Renomeando para {nome_novo}")
+                pyautogui.press("f2")
+                time.sleep(0.1)
+                pyautogui.write(nome_novo)
+                pyautogui.press("enter")
+            else:
+                falar("Não entendi o novo nome. Tente 'Renomear para [novo nome]'.")
+
+        elif intencao == "NAVEGAR_SELECIONAR_NOMEADO":
+            nome_item = None
+            comando_lower = comando_original.lower()
+            triggers = intents["NAVEGAR_SELECIONAR_NOMEADO"]
+            
+            for trigger in triggers:
+                trigger_lower = trigger.lower()
+                if comando_lower.startswith(trigger_lower + " "):
+                    nome_item = comando_original[len(trigger):].strip()
+                    if nome_item:
+                        break
+            
+            if nome_item:
+                falar(f"Selecionando {nome_item}")
+                pyautogui.write(nome_item) 
+            else:
+                falar("Não entendi o que devo selecionar.")
+        
+        elif intencao == "NAVEGAR_ABRIR_NOMEADO":
+            nome_pasta = None
+            comando_lower = comando_original.lower()
+            triggers = intents["NAVEGAR_ABRIR_NOMEADO"]
+            
+            for trigger in triggers:
+                trigger_lower = trigger.lower()
+                if comando_lower.startswith(trigger_lower + " "):
+                    nome_pasta = comando_original[len(trigger):].strip()
+                    if nome_pasta:
+                        break
+            
+            if nome_pasta:
+                falar(f"Abrindo {nome_pasta}")
+                pyautogui.write(nome_pasta) 
+                pyautogui.press("enter")
+            else:
+                falar("Não entendi o nome da pasta.")
+
         elif intencao == "NAVEGAR_ABRIR_ITEM":
-            falar("Abrindo.")
+            falar("Abrindo item selecionado.")
             pyautogui.press("enter")
             
         elif intencao == "NAVEGAR_VOLTAR_PASTA":
             falar("Voltando.")
-            pyautogui.hotkey("alt", "left")
+            pyautogui.hotkey("alt", "left") # Funciona no Explorer E no Navegador
             
         elif intencao == "NAVEGAR_SUBIR_PASTA":
             falar("Subindo pasta.")
             pyautogui.hotkey("alt", "up")
+            
+        # --- AÇÕES DE PAGINAÇÃO DE LISTA ---
+        elif intencao == "LISTAR_ARQUIVOS":
+            caminho = get_explorer_path()
+            if caminho:
+                try:
+                    falar(f"Listando arquivos em {os.path.basename(caminho)}")
+                    lista_arquivos = os.listdir(caminho)
+                    estado.set_lista_arquivos(lista_arquivos)
+                    
+                    itens, msg = estado.get_proxima_pagina()
+                    falar(msg)
+                    if itens:
+                        texto_lista = ". ".join(itens)
+                        falar(texto_lista)
+                        
+                except Exception as e:
+                    falar(f"Não consegui ler os arquivos. Erro: {e}")
+            else:
+                falar("Não foi possível determinar a pasta atual.")
+                
+        elif intencao == "PAGINA_PROXIMA":
+            itens, msg = estado.get_proxima_pagina()
+            falar(msg)
+            if itens:
+                texto_lista = ". ".join(itens)
+                falar(texto_lista)
+
+        elif intencao == "PAGINA_ANTERIOR":
+            itens, msg = estado.get_pagina_anterior()
+            falar(msg)
+            if itens:
+                texto_lista = ". ".join(itens)
+                falar(texto_lista)
+                
+        # --- AÇÕES DE NAVEGAÇÃO WEB (NOVAS) ---
+        elif intencao == "WEB_PROXIMO_LINK":
+            falar("Próximo link.")
+            pyautogui.press("tab")
+
+        elif intencao == "WEB_LINK_ANTERIOR":
+            falar("Link anterior.")
+            pyautogui.hotkey("shift", "tab")
 
         # --- AÇÕES DE MÍDIA / SPOTIFY ---
         elif intencao == "ABRIR_SPOTIFY":
@@ -235,6 +318,19 @@ def executar_comando(intencao, comando_original):
         elif intencao == "MUSICA_ANTERIOR":
             falar("Música anterior.")
             pyautogui.press("prevtrack")
+        
+        # --- BLOCO DE CONTROLE DE VOLUME ADICIONADO ---
+        elif intencao == "AUMENTAR_VOLUME":
+            falar("Aumentando o volume.")
+            pyautogui.press("volumeup")
+
+        elif intencao == "DIMINUIR_VOLUME":
+            falar("Diminuindo o volume.")
+            pyautogui.press("volumedown")
+
+        elif intencao == "MUTAR_DESMUTAR":
+            falar("Mudo.")
+            pyautogui.press("volumemute")
 
         # --- AÇÕES DE PROGRAMAS ---
         elif intencao == "ABRIR_BLOCO_DE_NOTAS":
@@ -282,3 +378,22 @@ def abrir_no_explorer(caminho_shell):
     except Exception as e:
         print(f"Erro ao abrir explorer com {caminho_shell}: {e}")
         falar("Não consegui abrir o explorador.")
+
+# Em modulo_execucao.py, abaixo da função abrir_no_explorer
+
+def get_explorer_path():
+    """
+    Tenta obter o caminho da pasta ativa no Windows Explorer.
+    Foca na barra de endereço (Alt+D), copia (Ctrl+C) e lê do clipboard.
+    """
+    try:
+        pyautogui.hotkey("alt", "d") # Foca na barra de endereço
+        time.sleep(0.1) # Pequena pausa para o SO responder
+        pyautogui.hotkey("ctrl", "c") # Copia o caminho
+        time.sleep(0.1)
+        caminho = pyperclip.paste() # Lê o caminho do clipboard
+        return caminho
+    except Exception as e:
+        print(f"Erro ao tentar obter o caminho do explorer: {e}")
+        falar("Não consegui identificar a pasta atual.")
+        return None
